@@ -1,82 +1,103 @@
 import React, { useState, useEffect, useRef } from 'react';
+import Register from './Register';
+import Login from './Login';
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [itineraries, setItineraries] = useState([]);
+  const [selectedItinerary, setSelectedItinerary] = useState(null);
+  const [page, setPage] = useState((window.location.hash || '#login').replace('#', '') || 'login');
 
   useEffect(() => {
     if (token) fetchItineraries();
   }, [token]);
 
+  useEffect(() => {
+    const onHash = () => setPage((window.location.hash || '#login').replace('#', '') || 'login');
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
   async function fetchItineraries() {
-    const res = await fetch('http://localhost:5000/api/itinerary', {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    const res = await fetch('/api/itinerary', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setItineraries(data.itineraries || []);
   }
 
-  if (!token) return <Auth onAuth={(t) => { setToken(t); localStorage.setItem('token', t); }} />;
+  function handleAuth(t) {
+    setToken(t);
+    localStorage.setItem('token', t);
+    fetchItineraries();
+  }
 
-  return (
-    <div className="container">
-      <h1>My Itineraries</h1>
-      <Upload token={token} onUploaded={fetchItineraries} />
-      <h3>History</h3>
-      <ul className="it-list">
-        {itineraries.map(it => (
-          <li key={it._id} className="it-row">
-            <div>
-              <strong>{it.title || 'Untitled'}</strong>
-              <div className="muted">{new Date(it.createdAt).toLocaleString()}</div>
-            </div>
-            <div>
-              <button onClick={async () => {
-                const res = await fetch(`http://localhost:5000/api/itinerary/${it._id}`, { headers: { Authorization: `Bearer ${token}` } });
-                const data = await res.json();
-                setSelectedItinerary(data.itinerary);
-              }}>View</button>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {selectedItinerary && <ItineraryViewer it={selectedItinerary} onClose={() => setSelectedItinerary(null)} />}
-    </div>
-  );
-}
-
-function Auth({ onAuth }) {
-  const [isLogin, setIsLogin] = useState(true);
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
-
-  async function submit(e) {
-    e.preventDefault();
-    const url = `http://localhost:5000/api/auth/${isLogin ? 'login' : 'register'}`;
-    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
-    const data = await res.json();
-    if (data.token) onAuth(data.token);
+  if (!token) {
+    return (
+      <div className="app-shell">
+        <div className="container">
+          <div className="panel auth">
+            {page === 'register' ? <Register onAuth={handleAuth} /> : <Login onAuth={handleAuth} />}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="auth">
-      <h2>{isLogin ? 'Login' : 'Register'}</h2>
-      <form onSubmit={submit}>
-        {!isLogin && <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} />}
-        <input placeholder="Email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
-        <input type="password" placeholder="Password" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} />
-        <button type="submit">Submit</button>
-      </form>
-      <button onClick={() => setIsLogin(!isLogin)}>{isLogin ? 'Switch to register' : 'Switch to login'}</button>
+    <div className="app-shell">
+      <div className="topbar">
+        <div className="brand">
+          <div className="logo">TI</div>
+          <div className="title">Travel Itineraries</div>
+        </div>
+        <div>
+          <button className="btn secondary" onClick={() => { localStorage.removeItem('token'); setToken(null); }}>Sign out</button>
+        </div>
+      </div>
+
+      <div className="container">
+        <div className="panel">
+          <h3 style={{marginTop:0, color:'var(--color-bg-deep-teal)'}}>Upload & Generate</h3>
+          <Upload token={token} onUploaded={async (created) => { if (created) setSelectedItinerary(created); await fetchItineraries(); }} />
+
+          <h3 style={{marginTop:18, color:'var(--color-bg-deep-teal)'}}>History</h3>
+          <ul className="it-list">
+            {itineraries.map(it => (
+              <li key={it._id} className="it-row">
+                <div>
+                  <strong>{it.title || 'Untitled'}</strong>
+                  <div className="muted">{new Date(it.createdAt).toLocaleString()}</div>
+                </div>
+                <div>
+                  <button className="btn" onClick={async () => {
+                    const res = await fetch(`/api/itinerary/${it._id}`, { headers: { Authorization: `Bearer ${token}` } });
+                    const data = await res.json();
+                    setSelectedItinerary(data.itinerary);
+                  }}>View</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="panel">
+          <h3 style={{marginTop:0, color:'var(--color-bg-deep-teal)'}}>Itinerary Viewer</h3>
+          {!selectedItinerary ? <div style={{color:'rgba(45,58,56,0.7)'}}>Select an itinerary from history or generate one from uploads.</div> : <ItineraryViewer it={selectedItinerary} onClose={() => setSelectedItinerary(null)} />}
+        </div>
+      </div>
     </div>
   );
 }
+
+// Auth handled by separate Register and Login components
 
 function Upload({ token, onUploaded }) {
   const [files, setFiles] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [extractedResults, setExtractedResults] = useState(null);
+  const [renderedItinerary, setRenderedItinerary] = useState(null);
+  const [createdItinerary, setCreatedItinerary] = useState(null);
   const inputRef = useRef();
 
   function handleFiles(selected) {
@@ -103,13 +124,26 @@ function Upload({ token, onUploaded }) {
     const form = new FormData();
     files.forEach(f => form.append('files', f));
     try {
-      const res = await fetch('http://localhost:5000/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const res = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
       const data = await res.json();
-      setAiResult(data.ai || JSON.stringify(data.itinerary || data.extracted || {}, null, 2));
-      setFiles([]);
-      onUploaded && onUploaded();
+      if (!res.ok) {
+        const err = data.error || data.message || JSON.stringify(data);
+        setAiResult(`Error: ${err}`);
+      } else {
+        // show extracted text immediately
+        const extracted = (data.itinerary && data.itinerary.bookings) || data.extracted || [];
+        setExtractedResults(extracted);
+        const aiText = data.ai || (data.itinerary && data.itinerary.ai_generated) || '';
+        const rendered = data.rendered || (typeof aiText === 'string' ? aiText : JSON.stringify(aiText, null, 2));
+        setAiResult(aiText || JSON.stringify(data.itinerary || {}, null, 2));
+        setRenderedItinerary(rendered);
+        setFiles([]);
+        setCreatedItinerary(data.itinerary || null);
+        onUploaded && onUploaded(data.itinerary || null);
+      }
     } catch (err) {
       console.error(err);
+      setAiResult(`Upload failed: ${err.message || err}`);
     } finally {
       setUploading(false);
     }
@@ -139,14 +173,26 @@ function Upload({ token, onUploaded }) {
         </div>
       )}
 
-      <div style={{ marginTop: 10 }}>
-        <button onClick={upload} disabled={uploading}>{uploading ? 'Uploading...' : 'Upload files'}</button>
+      <div style={{ marginTop: 10, display:'flex', gap:8 }}>
+        <button className="btn" onClick={upload} disabled={uploading}>{uploading ? 'Uploading...' : 'Upload & Generate'}</button>
+        <button className="btn secondary" onClick={() => { setFiles([]); setAiResult(null); setExtractedResults(null); setCreatedItinerary(null); }}>Clear</button>
+        {createdItinerary && <button className="btn" onClick={() => onUploaded && onUploaded(createdItinerary)}>Open generated itinerary</button>}
       </div>
 
-      {aiResult && (
+      {renderedItinerary && (
         <div className="ai-result">
-          <h4>AI Result</h4>
-          <pre>{aiResult}</pre>
+          <h4>Planned Itinerary</h4>
+          <pre style={{whiteSpace:'pre-wrap'}}>{renderedItinerary}</pre>
+        </div>
+      )}
+      {extractedResults && (
+        <div className="ai-result">
+          <h4>Extracted Text (first lines)</h4>
+          <ul>
+            {extractedResults.map((e, i) => (
+              <li key={i}><strong>{e.filename}</strong>: <span>{(e.text||'').substr(0,200)}{(e.text && e.text.length>200)?'...':''}</span></li>
+            ))}
+          </ul>
         </div>
       )}
     </div>

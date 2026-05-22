@@ -1,0 +1,15 @@
+[Unit]
+Description=Travel server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/app/server
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+Environment=NODE_ENV=production
+# Add other Environment=KEY=VALUE lines or read from .env via dotenv in app
+User=ubuntu
+
+[Install]
+WantedBy=multi-user.target
