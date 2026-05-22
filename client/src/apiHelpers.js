@@ -11,7 +11,7 @@ export async function parseJsonResponse(res) {
 export function getAuthErrorMessage(err, data, res) {
   if (err) {
     if (err.message === 'Failed to fetch') {
-      return 'Cannot connect to the server. Make sure the backend is running on EC2 and port 5000 is open.';
+      return 'Cannot connect to the server. Ensure the EC2 backend is running, port 5000 is open, and redeploy Vercel after pulling the latest code.';
     }
     return err.message || String(err);
   }
