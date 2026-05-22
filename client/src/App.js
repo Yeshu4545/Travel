@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Register from './Register';
 import Login from './Login';
+import { getAccessToken, clearTokens, authFetch } from './auth';
 
 function App() {
-  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [token, setToken] = useState(getAccessToken());
   const [itineraries, setItineraries] = useState([]);
   const [selectedItinerary, setSelectedItinerary] = useState(null);
   const [page, setPage] = useState((window.location.hash || '#login').replace('#', '') || 'login');
@@ -19,14 +20,13 @@ function App() {
   }, []);
 
   async function fetchItineraries() {
-    const res = await fetch('/api/itinerary', { headers: { Authorization: `Bearer ${token}` } });
+    const res = await authFetch('/api/itinerary');
     const data = await res.json();
     setItineraries(data.itineraries || []);
   }
 
   function handleAuth(t) {
     setToken(t);
-    localStorage.setItem('token', t);
     fetchItineraries();
   }
 
@@ -50,7 +50,7 @@ function App() {
           <div className="title">Travel Itineraries</div>
         </div>
         <div>
-          <button className="btn secondary" onClick={() => { localStorage.removeItem('token'); setToken(null); }}>Sign out</button>
+          <button className="btn secondary" onClick={() => { clearTokens(); setToken(null); }}>Sign out</button>
         </div>
       </div>
 
@@ -69,7 +69,7 @@ function App() {
                 </div>
                 <div>
                   <button className="btn" onClick={async () => {
-                    const res = await fetch(`/api/itinerary/${it._id}`, { headers: { Authorization: `Bearer ${token}` } });
+                    const res = await authFetch(`/api/itinerary/${it._id}`);
                     const data = await res.json();
                     setSelectedItinerary(data.itinerary);
                   }}>View</button>
@@ -124,7 +124,7 @@ function Upload({ token, onUploaded }) {
     const form = new FormData();
     files.forEach(f => form.append('files', f));
     try {
-      const res = await fetch('/api/upload', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      const res = await authFetch('/api/upload', { method: 'POST', body: form });
       const data = await res.json();
       if (!res.ok) {
         const err = data.error || data.message || JSON.stringify(data);
