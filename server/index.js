@@ -9,7 +9,17 @@ const uploadRoutes = require('./routes/upload');
 const itineraryRoutes = require('./routes/itinerary');
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+    ],
+    credentials: true,
+  })
+);
 app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

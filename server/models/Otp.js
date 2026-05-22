@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const OtpSchema = new mongoose.Schema({
-  phone: { type: String, required: true, index: true },
+  email: { type: String, required: true, index: true },
   codeHash: { type: String, required: true },
   attempts: { type: Number, default: 0 },
   expiresAt: { type: Date, required: true },
