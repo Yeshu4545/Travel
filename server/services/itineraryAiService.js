@@ -56,13 +56,29 @@ Return ONLY valid JSON with this exact structure:
   ]
 }`;
 
-function getGeminiModel() {
+/** Short names like gemini-1.5-flash are invalid — map to current API model IDs */
+const MODEL_ALIASES = {
+  'gemini-1.5-flash': 'gemini-2.0-flash',
+  'gemini-1.5-pro': 'gemini-2.0-flash',
+  'gemini-pro': 'gemini-2.0-flash',
+};
+
+const MODEL_FALLBACKS = ['gemini-2.0-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro-002'];
+
+function resolveModelName(name) {
+  const raw = (name || 'gemini-2.0-flash').trim();
+  return MODEL_ALIASES[raw] || raw;
+}
+
+function getGeminiClient() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error('GEMINI_API_KEY is not configured on the server');
   }
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const modelName = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  return new GoogleGenerativeAI(apiKey);
+}
+
+function getGeminiModel(genAI, modelName) {
   return genAI.getGenerativeModel({
     model: modelName,
     systemInstruction: SYSTEM_PROMPT,
@@ -74,8 +90,15 @@ function getGeminiModel() {
   });
 }
 
+function isModelNotFoundError(err) {
+  const msg = err?.message || String(err);
+  return err?.status === 404 || /not found|404/i.test(msg);
+}
+
 async function generateWeeklyItinerary(extracted, combinedText) {
-  const model = getGeminiModel();
+  const genAI = getGeminiClient();
+  const preferred = resolveModelName(process.env.GEMINI_MODEL);
+  const modelsToTry = [...new Set([preferred, ...MODEL_FALLBACKS])];
 
   const userPrompt = `Uploaded booking documents (${extracted.length} file(s)):
 
@@ -83,9 +106,29 @@ ${combinedText}
 
 Create the weekly travel itinerary JSON. Use real place names for the destination. Align activities with booking dates when present.`;
 
-  const result = await model.generateContent(userPrompt);
+  let lastError = null;
+  let raw = '';
 
-  const raw = result.response.text();
+  for (const modelName of modelsToTry) {
+    try {
+      const model = getGeminiModel(genAI, modelName);
+      const result = await model.generateContent(userPrompt);
+      raw = result.response.text();
+      lastError = null;
+      break;
+    } catch (err) {
+      lastError = err;
+      if (!isModelNotFoundError(err)) throw err;
+      console.warn(`Gemini model "${modelName}" unavailable, trying next...`);
+    }
+  }
+
+  if (lastError) {
+    throw new Error(
+      `No Gemini model available. Set GEMINI_MODEL=gemini-2.0-flash in .env (not gemini-1.5-flash). Details: ${lastError.message}`
+    );
+  }
+
   const plan = parseJsonFromAi(raw);
   if (!plan || !Array.isArray(plan.weeklyPlan)) {
     throw new Error('Gemini did not return a valid weekly plan structure');
