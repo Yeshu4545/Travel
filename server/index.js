@@ -7,6 +7,7 @@ const path = require('path');
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
 const itineraryRoutes = require('./routes/itinerary');
+const geminiTestRoutes = require('./routes/geminiTest');
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -18,9 +19,12 @@ app.get('/api/health', (req, res) => {
   res.json({
     ok: true,
     mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    geminiConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY),
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5-flash-002',
   });
 });
 
+app.use('/api/gemini', geminiTestRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/itinerary', itineraryRoutes);

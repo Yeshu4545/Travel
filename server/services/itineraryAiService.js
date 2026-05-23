@@ -58,15 +58,21 @@ Return ONLY valid JSON with this exact structure:
 
 /** Short names like gemini-1.5-flash are invalid — map to current API model IDs */
 const MODEL_ALIASES = {
-  'gemini-1.5-flash': 'gemini-2.0-flash',
-  'gemini-1.5-pro': 'gemini-2.0-flash',
-  'gemini-pro': 'gemini-2.0-flash',
+  'gemini-1.5-flash': 'gemini-1.5-flash-002',
+  'gemini-1.5-pro': 'gemini-1.5-pro-002',
+  'gemini-pro': 'gemini-1.5-flash-002',
+  'gemini-2.0-flash': 'gemini-1.5-flash-002',
 };
 
-const MODEL_FALLBACKS = ['gemini-2.0-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro-002'];
+const MODEL_FALLBACKS = [
+  'gemini-1.5-flash-002',
+  'gemini-1.5-pro-002',
+  'gemini-2.0-flash-001',
+  'gemini-2.0-flash',
+];
 
 function resolveModelName(name) {
-  const raw = (name || 'gemini-2.0-flash').trim();
+  const raw = (name || 'gemini-1.5-flash-002').trim();
   return MODEL_ALIASES[raw] || raw;
 }
 
@@ -125,7 +131,7 @@ Create the weekly travel itinerary JSON. Use real place names for the destinatio
 
   if (lastError) {
     throw new Error(
-      `No Gemini model available. Set GEMINI_MODEL=gemini-2.0-flash in .env (not gemini-1.5-flash). Details: ${lastError.message}`
+      `No Gemini model available. Set GEMINI_MODEL=gemini-1.5-flash-002 in server/.env. Details: ${lastError.message}`
     );
   }
 
