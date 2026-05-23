@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { apiUrl } from './constants';
 import { handleAuthResponse } from './auth';
 import { parseJsonResponse, getAuthErrorMessage } from './apiHelpers';
+import AuthHero from './components/AuthHero';
 
 export default function Login({ onAuth }) {
   const [form, setForm] = useState({ email: '', password: '' });
@@ -48,19 +49,21 @@ export default function Login({ onAuth }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-hero">
-        <div className="auth-hero-inner">
-          <div className="logo large">trrip</div>
-          <h1>Simplifying on-ground travel experiences</h1>
-          <p className="muted-hero">Manage on-ground experiences, coordinate partners, and ensure smooth trip execution after confirmation.</p>
-        </div>
-      </div>
+      <AuthHero
+        title="Simplifying on-ground travel experiences"
+        subtitle="Manage tours, coordinate partners, and deliver smooth trip execution after confirmation."
+        bullets={[
+          'Upload tickets & hotel PDFs',
+          'Gemini builds your weekly plan',
+          'Share itineraries with one link',
+        ]}
+      />
 
       <div className="auth-card">
         <h2>Login Now</h2>
         <p className="muted">Sign in with your email and password</p>
 
-        {error && <div style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
+        {error && <div className="auth-error">{error}</div>}
 
         <form onSubmit={submit} className="auth-form">
           <label className="label">Email</label>
@@ -73,7 +76,7 @@ export default function Login({ onAuth }) {
             onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
 
-          <label className="label" style={{ marginTop: 10 }}>Password</label>
+          <label className="label">Password</label>
           <input
             className="input"
             name="password"
@@ -83,11 +86,11 @@ export default function Login({ onAuth }) {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
 
-          <button type="submit" className="btn primary" style={{ marginTop: 12 }} disabled={loading}>
+          <button type="submit" className="btn primary" disabled={loading}>
             {loading ? 'Logging in...' : 'Login'}
           </button>
 
-          <div style={{ marginTop: 14, fontSize: 13, textAlign: 'center' }}>
+          <div className="auth-footer">
             Don&apos;t have an account?{' '}
             <a href="#register" onClick={(e) => { e.preventDefault(); window.location.hash = 'register'; }}>Register Now</a>
           </div>

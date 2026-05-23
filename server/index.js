@@ -20,7 +20,7 @@ app.get('/api/health', (req, res) => {
     ok: true,
     mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
     geminiConfigured: Boolean(process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY),
-    geminiModel: process.env.GEMINI_MODEL || 'gemini-1.5-flash-002',
+    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
   });
 });
 
@@ -46,7 +46,14 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on ${PORT}`);
 });
 
-mongoose
-  .connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.error('Mongo connection error', err));
+const mongoUri = process.env.MONGO_URI;
+if (!mongoUri) {
+  console.error('MONGO_URI is missing in .env');
+} else {
+  mongoose
+    .connect(mongoUri, {
+      serverSelectionTimeoutMS: 10000,
+    })
+    .then(() => console.log('MongoDB connected'))
+    .catch((err) => console.error('Mongo connection error', err.message || err));
+}

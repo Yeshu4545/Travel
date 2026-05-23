@@ -1,6 +1,7 @@
 const Itinerary = require('../models/Itinerary');
 const { extractFromUploadedFiles, combineExtractedText } = require('../services/extractionService');
 const { generateWeeklyItinerary, formatWeeklyPlanText } = require('../services/itineraryAiService');
+const { uploadFilesToS3, isS3Enabled } = require('../services/s3Service');
 
 async function generateFromUpload(req, res) {
   try {
@@ -21,6 +22,15 @@ async function generateFromUpload(req, res) {
     const weeklyPlanData = await generateWeeklyItinerary(extracted, combinedText);
     const renderedPlan = formatWeeklyPlanText(weeklyPlanData);
 
+    let s3Files = [];
+    if (isS3Enabled()) {
+      try {
+        s3Files = await uploadFilesToS3(files, req.user.id);
+      } catch (s3Err) {
+        console.error('S3 upload error', s3Err.message || s3Err);
+      }
+    }
+
     const itinerary = await Itinerary.create({
       user: req.user.id,
       title: weeklyPlanData.title || `Trip to ${weeklyPlanData.destination || 'Destination'}`,
@@ -28,12 +38,14 @@ async function generateFromUpload(req, res) {
       tripStart: weeklyPlanData.tripStart,
       tripEnd: weeklyPlanData.tripEnd,
       summary: weeklyPlanData.summary,
-      bookings: extracted.map(({ filename, mimetype, text, charCount }) => ({
+      bookings: extracted.map(({ filename, mimetype, text, charCount }, i) => ({
         filename,
         mimetype,
         charCount,
         textPreview: text.slice(0, 500),
+        s3Url: s3Files[i]?.url || null,
       })),
+      s3Files,
       extractedText: combinedText.slice(0, 50000),
       weeklyPlan: weeklyPlanData.weeklyPlan,
       bookingsSummary: weeklyPlanData.bookingsSummary || [],

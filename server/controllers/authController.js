@@ -52,10 +52,7 @@ async function register(req, res) {
         password,
       });
     } catch (cognitoErr) {
-      console.error('Cognito registration error', cognitoErr.message || cognitoErr);
-      if (process.env.COGNITO_USER_POOL_ID) {
-        return res.status(500).json({ error: 'Failed to register with Cognito. Check server Cognito settings.' });
-      }
+      console.warn('Cognito registration skipped:', cognitoErr.message || cognitoErr);
     }
 
     const hashed = await bcrypt.hash(password, 10);
@@ -211,10 +208,7 @@ async function verifyOtp(req, res) {
         password: password || undefined,
       });
     } catch (cognitoErr) {
-      console.error('Cognito registration error', cognitoErr.message || cognitoErr);
-      if (process.env.COGNITO_USER_POOL_ID) {
-        return res.status(500).json({ error: 'Failed to register with Cognito. Check server Cognito settings.' });
-      }
+      console.warn('Cognito registration skipped:', cognitoErr.message || cognitoErr);
     }
 
     let user = await User.findOne({ email: normalizedEmail });

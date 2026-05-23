@@ -58,21 +58,25 @@ Return ONLY valid JSON with this exact structure:
 
 /** Short names like gemini-1.5-flash are invalid — map to current API model IDs */
 const MODEL_ALIASES = {
-  'gemini-1.5-flash': 'gemini-1.5-flash-002',
-  'gemini-1.5-pro': 'gemini-1.5-pro-002',
-  'gemini-pro': 'gemini-1.5-flash-002',
-  'gemini-2.0-flash': 'gemini-1.5-flash-002',
+  'gemini-1.5-flash': 'gemini-2.5-flash',
+  'gemini-1.5-flash-002': 'gemini-2.5-flash',
+  'gemini-1.5-pro': 'gemini-2.5-flash',
+  'gemini-1.5-pro-002': 'gemini-2.5-flash',
+  'gemini-pro': 'gemini-2.5-flash',
+  'gemini-2.0-flash': 'gemini-2.5-flash',
+  'gemini-2.0-flash-001': 'gemini-2.5-flash',
 };
 
+/** Do not use gemini-2.0-flash — blocked for new API users */
 const MODEL_FALLBACKS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash-lite',
   'gemini-1.5-flash-002',
   'gemini-1.5-pro-002',
-  'gemini-2.0-flash-001',
-  'gemini-2.0-flash',
 ];
 
 function resolveModelName(name) {
-  const raw = (name || 'gemini-1.5-flash-002').trim();
+  const raw = (name || 'gemini-2.5-flash').trim();
   return MODEL_ALIASES[raw] || raw;
 }
 
@@ -96,9 +100,12 @@ function getGeminiModel(genAI, modelName) {
   });
 }
 
-function isModelNotFoundError(err) {
+function isRetryableModelError(err) {
   const msg = err?.message || String(err);
-  return err?.status === 404 || /not found|404/i.test(msg);
+  return (
+    err?.status === 404 ||
+    /not found|404|no longer available|not supported/i.test(msg)
+  );
 }
 
 async function generateWeeklyItinerary(extracted, combinedText) {
@@ -124,14 +131,14 @@ Create the weekly travel itinerary JSON. Use real place names for the destinatio
       break;
     } catch (err) {
       lastError = err;
-      if (!isModelNotFoundError(err)) throw err;
+      if (!isRetryableModelError(err)) throw err;
       console.warn(`Gemini model "${modelName}" unavailable, trying next...`);
     }
   }
 
   if (lastError) {
     throw new Error(
-      `No Gemini model available. Set GEMINI_MODEL=gemini-1.5-flash-002 in server/.env. Details: ${lastError.message}`
+      `No Gemini model available. Set GEMINI_MODEL=gemini-2.5-flash in server/.env. Details: ${lastError.message}`
     );
   }
 

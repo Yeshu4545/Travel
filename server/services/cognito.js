@@ -7,7 +7,13 @@ const {
   InitiateAuthCommand,
 } = require('@aws-sdk/client-cognito-identity-provider');
 const poolId = process.env.COGNITO_USER_POOL_ID;
-const region = process.env.AWS_REGION || 'us-east-1';
+
+/** Cognito user pools are regional — derive from pool id (e.g. ap-south-1_xxx). */
+function getCognitoRegion() {
+  if (process.env.COGNITO_REGION) return process.env.COGNITO_REGION;
+  if (poolId && poolId.includes('_')) return poolId.split('_')[0];
+  return process.env.AWS_REGION || 'us-east-1';
+}
 
 let client = null;
 
@@ -21,7 +27,10 @@ function getClient() {
             secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
           }
         : undefined;
-    client = new CognitoIdentityProviderClient({ region, credentials: creds });
+    client = new CognitoIdentityProviderClient({
+      region: getCognitoRegion(),
+      credentials: creds,
+    });
   }
   return client;
 }
