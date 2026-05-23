@@ -23,5 +23,13 @@ export function getAuthErrorMessage(err, data, res) {
     return 'Incorrect password. Please try again.';
   }
 
-  return data?.error || data?.message || 'Something went wrong. Please try again.';
+  const msg = data?.error || data?.message || '';
+  if (/buffering timed out|DB_UNAVAILABLE|ECONNREFUSED|MongoNetworkError/i.test(msg)) {
+    return 'Cannot reach the database. Start the server with a valid MONGO_URI and whitelist your IP in MongoDB Atlas.';
+  }
+  if (data?.code === 'DB_UNAVAILABLE') {
+    return 'Database is offline. Check server logs and MongoDB Atlas connection.';
+  }
+
+  return msg || 'Something went wrong. Please try again.';
 }

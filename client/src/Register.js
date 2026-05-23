@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { apiUrl } from './constants';
 import { handleAuthResponse } from './auth';
 import { parseJsonResponse, getAuthErrorMessage } from './apiHelpers';
+import AuthHero from './components/AuthHero';
 
 export default function Register({ onAuth }) {
   const [form, setForm] = useState({ name: '', email: '', password: '', confirmPassword: '' });
@@ -64,19 +65,21 @@ export default function Register({ onAuth }) {
 
   return (
     <div className="auth-page">
-      <div className="auth-hero">
-        <div className="auth-hero-inner">
-          <div className="logo large">trrip</div>
-          <h1>Grow Your\nBusiness</h1>
-          <p className="muted-hero">Join thousands of agents delivering seamless tour experiences.</p>
-        </div>
-      </div>
+      <AuthHero
+        title={<>Grow your<br />business</>}
+        subtitle="Join travel agents who turn booking documents into beautiful weekly itineraries in minutes."
+        bullets={[
+          'Free to start — email sign up',
+          'PDF & image upload with OCR',
+          'Plans saved to the cloud',
+        ]}
+      />
 
       <div className="auth-card">
         <h2>Get Started</h2>
         <p className="muted">Create your agent account with email</p>
 
-        {error && <div style={{ color: 'red', marginBottom: 8 }}>{error}</div>}
+        {error && <div className="auth-error">{error}</div>}
 
         <form onSubmit={submit} className="auth-form">
           <label className="label">Full Name</label>
@@ -87,7 +90,7 @@ export default function Register({ onAuth }) {
             onChange={(e) => update('name', e.target.value)}
           />
 
-          <label className="label" style={{ marginTop: 12 }}>Email</label>
+          <label className="label">Email</label>
           <input
             className="input"
             type="email"
@@ -96,7 +99,7 @@ export default function Register({ onAuth }) {
             onChange={(e) => update('email', e.target.value)}
           />
 
-          <label className="label" style={{ marginTop: 12 }}>Password</label>
+          <label className="label">Password</label>
           <input
             className="input"
             type="password"
@@ -105,7 +108,7 @@ export default function Register({ onAuth }) {
             onChange={(e) => update('password', e.target.value)}
           />
 
-          <label className="label" style={{ marginTop: 12 }}>Confirm Password</label>
+          <label className="label">Confirm Password</label>
           <input
             className="input"
             type="password"
@@ -114,11 +117,11 @@ export default function Register({ onAuth }) {
             onChange={(e) => update('confirmPassword', e.target.value)}
           />
 
-          <button className="btn primary" style={{ marginTop: 18 }} disabled={loading}>
+          <button className="btn primary" disabled={loading}>
             {loading ? 'Creating account...' : 'Register'}
           </button>
 
-          <div style={{ marginTop: 18, textAlign: 'center', fontSize: 13 }}>
+          <div className="auth-footer">
             Already have an account?{' '}
             <a href="#login" onClick={(e) => { e.preventDefault(); window.location.hash = 'login'; }}>Login</a>
           </div>
