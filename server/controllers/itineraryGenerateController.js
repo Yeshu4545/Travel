@@ -1,21 +1,29 @@
+const Itinerary = require('../models/Itinerary');
 const { extractFromUploadedFiles, combineExtractedText } = require('../services/extractionService');
 const { generateWeeklyItinerary, formatWeeklyPlanText } = require('../services/itineraryAiService');
-const Itinerary = require('../models/Itinerary');
 
-/** @deprecated Use itineraryGenerateController — kept for POST /api/upload */
-async function handleUpload(req, res) {
+async function generateFromUpload(req, res) {
   try {
     const files = req.files || [];
-    if (!files.length) return res.status(400).json({ error: 'Upload at least one PDF or image' });
+    if (!files.length) {
+      return res.status(400).json({ error: 'Upload at least one PDF or image' });
+    }
 
     const extracted = await extractFromUploadedFiles(files);
+    const hasText = extracted.some((e) => e.text && e.text.length > 20);
+    if (!hasText) {
+      return res.status(400).json({
+        error: 'Could not extract readable text from the files. Try a clearer PDF or image.',
+      });
+    }
+
     const combinedText = combineExtractedText(extracted);
     const weeklyPlanData = await generateWeeklyItinerary(extracted, combinedText);
     const renderedPlan = formatWeeklyPlanText(weeklyPlanData);
 
-    const it = await Itinerary.create({
+    const itinerary = await Itinerary.create({
       user: req.user.id,
-      title: weeklyPlanData.title || 'AI Itinerary',
+      title: weeklyPlanData.title || `Trip to ${weeklyPlanData.destination || 'Destination'}`,
       destination: weeklyPlanData.destination,
       tripStart: weeklyPlanData.tripStart,
       tripEnd: weeklyPlanData.tripEnd,
@@ -26,17 +34,26 @@ async function handleUpload(req, res) {
         charCount,
         textPreview: text.slice(0, 500),
       })),
+      extractedText: combinedText.slice(0, 50000),
       weeklyPlan: weeklyPlanData.weeklyPlan,
       bookingsSummary: weeklyPlanData.bookingsSummary || [],
       ai_generated: weeklyPlanData,
       renderedPlan,
     });
 
-    res.json({ itinerary: it, ai: weeklyPlanData, rendered: renderedPlan });
+    res.status(201).json({
+      ok: true,
+      itinerary,
+      plan: weeklyPlanData,
+      rendered: renderedPlan,
+      message: 'Weekly itinerary generated and saved to MongoDB',
+    });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
+    console.error('Generate itinerary error:', err);
+    res.status(500).json({
+      error: err.message || 'Failed to generate itinerary',
+    });
   }
 }
 
-module.exports = { handleUpload };
+module.exports = { generateFromUpload };

@@ -31,7 +31,7 @@ body {
 }
 .title { font-size:20px; font-weight:700; color:var(--color-white); }
 
-.container { grid-template-columns: 360px 1fr; gap: 20px; align-items:start; }
+.container { display: grid; grid-template-columns: 360px 1fr; gap: 20px; align-items:start; }
 
 .panel {
 	background: var(--color-card-bg);
@@ -84,8 +84,18 @@ body {
 .item-type { font-weight:700; color:var(--color-text-dark) }
 .item-details { font-size:13px; color:rgba(45,58,56,0.85) }
 
+.plan-summary { background:#fff; padding:12px; border-radius:10px; margin-bottom:14px; line-height:1.5 }
+.plan-meta { font-size:13px; color:rgba(45,58,56,0.7); margin-bottom:8px }
+.activity-card { padding:10px 0; border-top:1px dashed rgba(15,116,107,0.1) }
+.activity-card:first-child { border-top:0 }
+.activity-type { font-size:11px; text-transform:uppercase; color:var(--color-btn-teal); font-weight:700 }
+.share-box { margin-top:12px; padding:10px; background:#fff; border-radius:8px; font-size:13px; word-break:break-all }
+.share-box input { width:100%; padding:8px; margin-top:6px; border-radius:6px; border:1px solid rgba(15,116,107,0.15) }
+.status-msg { margin-top:10px; padding:10px; border-radius:8px; background:#fff; color:var(--color-bg-deep-teal); font-weight:600 }
+.status-msg.error { color:#b00020 }
+
 .btn { background: var(--color-btn-teal); color: var(--color-white); border: none; padding:10px 14px; border-radius:10px; cursor:pointer }
-.btn.secondary { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: rgba(255,255,255,0.9) }
+.btn.secondary { background: transparent; border: 1px solid rgba(255,255,255,0.12); color: #d4e5e3 }
 
 @media (max-width: 900px) {
 	.container { grid-template-columns: 1fr; }

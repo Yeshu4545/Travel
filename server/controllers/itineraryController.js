@@ -30,7 +30,11 @@ async function shareItinerary(req, res) {
     it.shared = true;
     it.share_token = token;
     await it.save();
-    res.json({ share_url: `${req.protocol}://${req.get('host')}/api/itinerary/shared/${token}` });
+    res.json({
+      share_token: token,
+      share_api_url: `${req.protocol}://${req.get('host')}/api/itinerary/shared/${token}`,
+      share_path: `#share/${token}`,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

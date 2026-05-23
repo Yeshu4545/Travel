@@ -21,7 +21,7 @@ PORT=5000
 NODE_ENV=production
 EOF
 
-for key in MONGO_URI JWT_SECRET OPENAI_API_KEY TWILIO_SID TWILIO_TOKEN TWILIO_FROM AWS_REGION S3_BUCKET; do
+for key in MONGO_URI JWT_SECRET GEMINI_API_KEY GEMINI_MODEL TWILIO_SID TWILIO_TOKEN TWILIO_FROM AWS_REGION S3_BUCKET; do
   echo "Fetching $key"
   val=$(aws ssm get-parameter --name "${SSM_PREFIX}/${key}" --with-decryption --query Parameter.Value --output text 2>/dev/null || true)
   if [ -n "$val" ]; then

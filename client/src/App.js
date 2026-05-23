@@ -1,23 +1,51 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Register from './Register';
 import Login from './Login';
-import { getAccessToken, clearTokens, authFetch } from './auth';
+import { getAccessToken, clearTokens, authFetch, authFetchJson } from './auth';
+import { apiUrl } from './constants';
 
 function App() {
   const [token, setToken] = useState(getAccessToken());
   const [itineraries, setItineraries] = useState([]);
   const [selectedItinerary, setSelectedItinerary] = useState(null);
   const [page, setPage] = useState((window.location.hash || '#login').replace('#', '') || 'login');
+  const [sharedItinerary, setSharedItinerary] = useState(null);
+  const [shareLoading, setShareLoading] = useState(false);
 
   useEffect(() => {
     if (token) fetchItineraries();
   }, [token]);
 
   useEffect(() => {
-    const onHash = () => setPage((window.location.hash || '#login').replace('#', '') || 'login');
+    const onHash = () => {
+      const hash = window.location.hash || '#login';
+      if (hash.startsWith('#share/')) {
+        const shareToken = hash.replace('#share/', '');
+        loadSharedItinerary(shareToken);
+        setPage('share');
+        return;
+      }
+      setSharedItinerary(null);
+      setPage(hash.replace('#', '') || 'login');
+    };
     window.addEventListener('hashchange', onHash);
+    onHash();
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
+
+  async function loadSharedItinerary(shareToken) {
+    setShareLoading(true);
+    try {
+      const res = await fetch(apiUrl(`/api/itinerary/shared/${shareToken}`));
+      const data = await res.json();
+      if (res.ok) setSharedItinerary(data.itinerary);
+      else setSharedItinerary(null);
+    } catch {
+      setSharedItinerary(null);
+    } finally {
+      setShareLoading(false);
+    }
+  }
 
   async function fetchItineraries() {
     const res = await authFetch('/api/itinerary');
@@ -27,7 +55,25 @@ function App() {
 
   function handleAuth(t) {
     setToken(t);
+    window.location.hash = '';
+    setPage('');
     fetchItineraries();
+  }
+
+  if (page === 'share') {
+    return (
+      <div className="app-shell">
+        <div className="panel" style={{ maxWidth: 720, margin: '0 auto' }}>
+          <h2 style={{ marginTop: 0, color: 'var(--color-bg-deep-teal)' }}>Shared Itinerary</h2>
+          {shareLoading && <p>Loading...</p>}
+          {!shareLoading && !sharedItinerary && <p>This share link is invalid or expired.</p>}
+          {sharedItinerary && <ItineraryViewer it={sharedItinerary} embedded />}
+          <div style={{ marginTop: 16 }}>
+            <a href="#login">Go to login</a>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!token) {
@@ -50,62 +96,90 @@ function App() {
           <div className="title">Travel Itineraries</div>
         </div>
         <div>
-          <button className="btn secondary" onClick={() => { clearTokens(); setToken(null); }}>Sign out</button>
+          <button className="btn secondary" onClick={() => { clearTokens(); setToken(null); window.location.hash = 'login'; }}>
+            Sign out
+          </button>
         </div>
       </div>
 
       <div className="container">
         <div className="panel">
-          <h3 style={{marginTop:0, color:'var(--color-bg-deep-teal)'}}>Upload & Generate</h3>
-          <Upload token={token} onUploaded={async (created) => { if (created) setSelectedItinerary(created); await fetchItineraries(); }} />
+          <h3 style={{ marginTop: 0, color: 'var(--color-bg-deep-teal)' }}>Upload &amp; Generate</h3>
+          <p style={{ fontSize: 13, marginTop: 0, opacity: 0.8 }}>
+            Upload booking PDFs or images. We extract details, build a weekly plan with Gemini AI, and save it to MongoDB.
+          </p>
+          <Upload
+            onUploaded={async (created) => {
+              if (created) setSelectedItinerary(created);
+              await fetchItineraries();
+            }}
+          />
 
-          <h3 style={{marginTop:18, color:'var(--color-bg-deep-teal)'}}>History</h3>
-          <ul className="it-list">
-            {itineraries.map(it => (
-              <li key={it._id} className="it-row">
-                <div>
-                  <strong>{it.title || 'Untitled'}</strong>
-                  <div className="muted">{new Date(it.createdAt).toLocaleString()}</div>
-                </div>
-                <div>
-                  <button className="btn" onClick={async () => {
-                    const res = await authFetch(`/api/itinerary/${it._id}`);
-                    const data = await res.json();
-                    setSelectedItinerary(data.itinerary);
-                  }}>View</button>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <h3 style={{ marginTop: 18, color: 'var(--color-bg-deep-teal)' }}>History</h3>
+          {itineraries.length === 0 ? (
+            <p className="muted">No itineraries yet. Upload documents to generate your first plan.</p>
+          ) : (
+            <ul className="it-list">
+              {itineraries.map((it) => (
+                <li key={it._id} className="it-row">
+                  <div>
+                    <strong>{it.title || 'Untitled'}</strong>
+                    <div className="muted">
+                      {it.destination && `${it.destination} · `}
+                      {new Date(it.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <div>
+                    <button
+                      className="btn"
+                      type="button"
+                      onClick={async () => {
+                        const res = await authFetch(`/api/itinerary/${it._id}`);
+                        const data = await res.json();
+                        setSelectedItinerary(data.itinerary);
+                      }}
+                    >
+                      View
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className="panel">
-          <h3 style={{marginTop:0, color:'var(--color-bg-deep-teal)'}}>Itinerary Viewer</h3>
-          {!selectedItinerary ? <div style={{color:'rgba(45,58,56,0.7)'}}>Select an itinerary from history or generate one from uploads.</div> : <ItineraryViewer it={selectedItinerary} onClose={() => setSelectedItinerary(null)} />}
+          <h3 style={{ marginTop: 0, color: 'var(--color-bg-deep-teal)' }}>Itinerary Viewer</h3>
+          {!selectedItinerary ? (
+            <div style={{ color: 'rgba(45,58,56,0.7)' }}>
+              Select an itinerary from history or generate one from uploads.
+            </div>
+          ) : (
+            <ItineraryViewer it={selectedItinerary} onClose={() => setSelectedItinerary(null)} onShared={fetchItineraries} />
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-// Auth handled by separate Register and Login components
-
-function Upload({ token, onUploaded }) {
+function Upload({ onUploaded }) {
   const [files, setFiles] = useState([]);
   const [dragOver, setDragOver] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [aiResult, setAiResult] = useState(null);
-  const [extractedResults, setExtractedResults] = useState(null);
-  const [renderedItinerary, setRenderedItinerary] = useState(null);
-  const [createdItinerary, setCreatedItinerary] = useState(null);
+  const [status, setStatus] = useState(null);
+  const [generated, setGenerated] = useState(null);
   const inputRef = useRef();
 
   function handleFiles(selected) {
     const arr = Array.from(selected);
-    setFiles(prev => [...prev, ...arr].slice(0, 8));
+    setFiles((prev) => [...prev, ...arr].slice(0, 8));
   }
 
-  function onInputChange(e) { handleFiles(e.target.files); }
+  function onInputChange(e) {
+    handleFiles(e.target.files);
+    e.target.value = '';
+  }
 
   function onDrop(e) {
     e.preventDefault();
@@ -114,40 +188,39 @@ function Upload({ token, onUploaded }) {
   }
 
   function removeFile(idx) {
-    setFiles(prev => prev.filter((_, i) => i !== idx));
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
   }
 
   async function upload(e) {
-    e && e.preventDefault();
+    e?.preventDefault();
     if (!files.length) return;
     setUploading(true);
+    setStatus(null);
+    setGenerated(null);
+
     const form = new FormData();
-    files.forEach(f => form.append('files', f));
+    files.forEach((f) => form.append('files', f));
+
     try {
-      const res = await authFetch('/api/upload', { method: 'POST', body: form });
-      const data = await res.json();
+      const { res, data } = await authFetchJson('/api/itinerary/generate', { method: 'POST', body: form });
+
       if (!res.ok) {
-        const err = data.error || data.message || JSON.stringify(data);
-        setAiResult(`Error: ${err}`);
-      } else {
-        // show extracted text immediately
-        const extracted = (data.itinerary && data.itinerary.bookings) || data.extracted || [];
-        setExtractedResults(extracted);
-        const aiText = data.ai || (data.itinerary && data.itinerary.ai_generated) || '';
-        const rendered = data.rendered || (typeof aiText === 'string' ? aiText : JSON.stringify(aiText, null, 2));
-        setAiResult(aiText || JSON.stringify(data.itinerary || {}, null, 2));
-        setRenderedItinerary(rendered);
-        setFiles([]);
-        setCreatedItinerary(data.itinerary || null);
-        onUploaded && onUploaded(data.itinerary || null);
+        setStatus({ type: 'error', text: data.error || 'Generation failed' });
+        return;
       }
+
+      setGenerated(data.itinerary);
+      setFiles([]);
+      setStatus({ type: 'ok', text: data.message || 'Weekly itinerary saved to MongoDB' });
+      onUploaded?.(data.itinerary);
     } catch (err) {
-      console.error(err);
-      setAiResult(`Upload failed: ${err.message || err}`);
+      setStatus({ type: 'error', text: err.message || 'Upload failed' });
     } finally {
       setUploading(false);
     }
   }
+
+  const plan = generated?.ai_generated || generated?.weeklyPlan ? generated?.ai_generated : null;
 
   return (
     <div>
@@ -156,10 +229,13 @@ function Upload({ token, onUploaded }) {
         onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
-        onClick={() => inputRef.current && inputRef.current.click()}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => e.key === 'Enter' && inputRef.current?.click()}
+        role="button"
+        tabIndex={0}
       >
-        <input ref={inputRef} style={{ display: 'none' }} type="file" multiple onChange={onInputChange} />
-        <p>Drag & drop files here, or click to select (PDFs / images)</p>
+        <input ref={inputRef} style={{ display: 'none' }} type="file" accept=".pdf,image/*" multiple onChange={onInputChange} />
+        <p>Drag &amp; drop PDFs or images, or click to select</p>
       </div>
 
       {files.length > 0 && (
@@ -167,99 +243,143 @@ function Upload({ token, onUploaded }) {
           {files.map((f, i) => (
             <div className="preview" key={i}>
               <div className="name">{f.name}</div>
-              <button onClick={() => removeFile(i)}>Remove</button>
+              <button type="button" onClick={(ev) => { ev.stopPropagation(); removeFile(i); }}>Remove</button>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ marginTop: 10, display:'flex', gap:8 }}>
-        <button className="btn" onClick={upload} disabled={uploading}>{uploading ? 'Uploading...' : 'Upload & Generate'}</button>
-        <button className="btn secondary" onClick={() => { setFiles([]); setAiResult(null); setExtractedResults(null); setCreatedItinerary(null); }}>Clear</button>
-        {createdItinerary && <button className="btn" onClick={() => onUploaded && onUploaded(createdItinerary)}>Open generated itinerary</button>}
+      <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn" type="button" onClick={upload} disabled={uploading || !files.length}>
+          {uploading ? 'Extracting & generating plan...' : 'Upload & Generate'}
+        </button>
+        <button
+          className="btn secondary"
+          type="button"
+          onClick={() => { setFiles([]); setStatus(null); setGenerated(null); }}
+        >
+          Clear
+        </button>
       </div>
 
-      {renderedItinerary && (
-        <div className="ai-result">
-          <h4>Planned Itinerary</h4>
-          <pre style={{whiteSpace:'pre-wrap'}}>{renderedItinerary}</pre>
-        </div>
-      )}
-      {extractedResults && (
-        <div className="ai-result">
-          <h4>Extracted Text (first lines)</h4>
-          <ul>
-            {extractedResults.map((e, i) => (
-              <li key={i}><strong>{e.filename}</strong>: <span>{(e.text||'').substr(0,200)}{(e.text && e.text.length>200)?'...':''}</span></li>
-            ))}
-          </ul>
+      {status && <div className={`status-msg ${status.type === 'error' ? 'error' : ''}`}>{status.text}</div>}
+
+      {generated && (
+        <div className="ai-result" style={{ marginTop: 14 }}>
+          <h4>Generated weekly plan</h4>
+          <ItineraryPlan plan={plan || { weeklyPlan: generated.weeklyPlan, title: generated.title, destination: generated.destination, summary: generated.summary, tripStart: generated.tripStart, tripEnd: generated.tripEnd }} compact />
         </div>
       )}
     </div>
   );
 }
 
-export default App;
+function ItineraryPlan({ plan, compact }) {
+  if (!plan) return null;
+  const days = plan.weeklyPlan || plan.days || [];
 
-function ItineraryViewer({ it, onClose }) {
-  let parsed = null;
-  const ai = it.ai_generated || it.ai || it.aiResult || '';
-  if (ai) {
-    if (typeof ai === 'object') parsed = ai;
-    else {
-      try { parsed = JSON.parse(ai); } catch (e) { parsed = null; }
+  return (
+    <div>
+      {!compact && plan.summary && <div className="plan-summary">{plan.summary}</div>}
+      <div className="plan-meta">
+        {plan.destination && <div><strong>Destination:</strong> {plan.destination}</div>}
+        {(plan.tripStart || plan.tripEnd) && (
+          <div><strong>Dates:</strong> {plan.tripStart || '?'} → {plan.tripEnd || '?'}</div>
+        )}
+      </div>
+      {days.map((day, idx) => (
+        <div className="day" key={idx}>
+          <div className="day-title">
+            {day.dayLabel || `Day ${day.day || idx + 1}`}
+            {day.date ? ` · ${day.date}` : ''}
+          </div>
+          {day.theme && <div style={{ fontSize: 13, marginBottom: 8, fontStyle: 'italic' }}>{day.theme}</div>}
+          {(day.activities || day.items || []).map((act, j) => (
+            <div className="activity-card" key={j}>
+              <div className="item-time">{act.time || ''}</div>
+              <div className="item-main">
+                <div className="item-type">{act.title || act.type}</div>
+                {act.location && <div className="item-details">📍 {act.location}</div>}
+                <div className="item-details">{act.description || act.details || ''}</div>
+                {act.type && act.title && <div className="activity-type">{act.type}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ItineraryViewer({ it, onClose, onShared, embedded }) {
+  const [shareLink, setShareLink] = useState('');
+  const [sharing, setSharing] = useState(false);
+
+  const plan = it.ai_generated || {
+    title: it.title,
+    destination: it.destination,
+    summary: it.summary,
+    tripStart: it.tripStart,
+    tripEnd: it.tripEnd,
+    weeklyPlan: it.weeklyPlan,
+    bookingsSummary: it.bookingsSummary,
+  };
+
+  async function share() {
+    setSharing(true);
+    try {
+      const res = await authFetch(`/api/itinerary/${it._id}/share`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        const link = `${window.location.origin}${window.location.pathname}${data.share_path || `#share/${data.share_token}`}`;
+        setShareLink(link);
+        onShared?.();
+      }
+    } finally {
+      setSharing(false);
     }
   }
 
+  function copyLink() {
+    if (shareLink) navigator.clipboard?.writeText(shareLink);
+  }
+
+  const wrapperClass = embedded ? '' : 'viewer';
+
   return (
-    <div className="viewer">
+    <div className={wrapperClass}>
       <div className="viewer-header">
-        <h2>{it.title || 'Itinerary'}</h2>
-        <div>
-          <button onClick={onClose}>Close</button>
-        </div>
+        <h2>{it.title || plan.title || 'Itinerary'}</h2>
+        {!embedded && onClose && <button type="button" onClick={onClose}>Close</button>}
       </div>
 
       <div className="viewer-body">
-        {parsed ? (
-          <div>
-            {parsed.days && parsed.days.length ? parsed.days.map((day, idx) => (
-              <div className="day" key={idx}>
-                <div className="day-title">{day.date || `Day ${idx+1}`}</div>
-                <div className="day-items">
-                  {(day.items || []).map((itx, j) => (
-                    <div className="item" key={j}>
-                      <div className="item-time">{itx.time || ''}</div>
-                      <div className="item-main">
-                        <div className="item-type">{itx.type || itx.title || itx.name}</div>
-                        <div className="item-details">{itx.from ? `${itx.from} → ${itx.to || ''}` : itx.details || ''}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )) : <div>No days found in AI output.</div>}
+        <ItineraryPlan plan={plan} />
 
-            {parsed.bookings && parsed.bookings.length > 0 && (
-              <div>
-                <h4>Bookings</h4>
-                <ul>
-                  {parsed.bookings.map((b, i) => <li key={i}>{typeof b === 'string' ? b : JSON.stringify(b)}</li>)}
-                </ul>
-              </div>
-            )}
+        {plan.bookingsSummary?.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <h4>From your uploads</h4>
+            <ul>
+              {plan.bookingsSummary.map((b, i) => (
+                <li key={i}><strong>{b.type}</strong> ({b.source}): {b.details}</li>
+              ))}
+            </ul>
           </div>
-        ) : (
-          <div>
-            <h4>AI Output (raw)</h4>
-            <pre>{ai || it.ai_generated || it.ai_generated}</pre>
-            {it.bookings && it.bookings.length > 0 && (
-              <div>
-                <h4>Uploaded Bookings</h4>
-                <ul>
-                  {it.bookings.map((b, i) => <li key={i}>{b.filename} — {b.text ? (b.text.substr(0,120) + (b.text.length>120?'...':'')) : 'no text'}</li>)}
-                </ul>
-              </div>
+        )}
+
+        {!embedded && (
+          <div className="share-box">
+            <strong>Share this itinerary</strong>
+            <button className="btn" type="button" style={{ marginTop: 8 }} onClick={share} disabled={sharing}>
+              {sharing ? 'Creating link...' : 'Generate share link'}
+            </button>
+            {shareLink && (
+              <>
+                <input readOnly value={shareLink} onFocus={(e) => e.target.select()} />
+                <button className="btn secondary" type="button" style={{ marginTop: 6 }} onClick={copyLink}>
+                  Copy link
+                </button>
+              </>
             )}
           </div>
         )}
@@ -267,3 +387,5 @@ function ItineraryViewer({ it, onClose }) {
     </div>
   );
 }
+
+export default App;
