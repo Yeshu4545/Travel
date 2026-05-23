@@ -2,6 +2,7 @@
   "name": "travel-itinerary",
   "private": true,
   "scripts": {
+    "install:server": "npm install --prefix server",
     "server": "npm start --prefix server",
     "client": "npm start --prefix client",
     "dev": "npm run server"
