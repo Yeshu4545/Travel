@@ -10,7 +10,7 @@ Quick start (local):
 
 1. Backend
 
-  - Edit `server/.env.example` and create `.env` with your values (Mongo URI, JWT secret, `OPENAI_API_KEY`).
+  - Edit `server/.env.example` and create `.env` with your values (Mongo URI, JWT secret, `GEMINI_API_KEY`).
   - Install & run:
 
 ```powershell
@@ -30,4 +30,4 @@ npm start
 Notes & next steps:
 - Configure cloud storage (S3) for uploads in production.
 - Configure a managed OCR like Google Vision for better accuracy.
-- Replace the OpenAI model string with your preferred model and ensure `OPENAI_API_KEY` is set.
+- Set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikey). Optional: `GEMINI_MODEL` (default `gemini-2.0-flash`).

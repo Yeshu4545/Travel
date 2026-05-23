@@ -60,6 +60,27 @@ export async function authFetch(path, options = {}) {
   return res;
 }
 
+export async function authFetchJson(path, options = {}) {
+  const res = await authFetch(path, options);
+  const text = await res.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+        const hint =
+          process.env.NODE_ENV === 'production'
+            ? 'Production build cannot use the dev proxy. Use Vercel deploy or set API to EC2 with port 5000 open.'
+            : 'Start the backend first: open a terminal, run "cd server" then "npm start", then restart "npm start" in client. Do not use "npm run build" for local testing.';
+        throw new Error(`API returned HTML instead of JSON. ${hint}`);
+      }
+      throw new Error(text.slice(0, 180) || 'Invalid server response');
+    }
+  }
+  return { res, data };
+}
+
 export function handleAuthResponse(data, onAuth) {
   saveTokens(data);
   const access = data.accessToken || data.token;

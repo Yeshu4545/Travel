@@ -3,11 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "http-proxy-middleware": "^2.0.6",
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "react-scripts": "5.0.1"
   },
-  "proxy": "http://65.2.168.202:5000",
+  "proxy": "http://127.0.0.1:5000",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build"
